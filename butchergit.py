@@ -9,7 +9,7 @@ import numpy as np
 import scipy as sc
 import sympy as sp
 import pprint as pp
-
+from scipy import linalg
 pprint = pp.pprint
 
 flatten = lambda l: [item for sublist in l for item in sublist] 
@@ -114,23 +114,25 @@ class butcher:
        
        def Ai(self, B, C):
               n = self.s
+              Vsyms = sp.Matrix(sp.symarray('a',(n-1,n)))
               Asyms = []
               Asymsl = []
               eqsa = []
               symsd = []
               for sy in range(n-1):
                      for sk in range(n):
-                            sd = sp.symbols("a{}{}".format(sy,sk))
+                            sd = sp.symbols("a_{}_{}".format(sy,sk))
                             symsd.append(sd)
               for i in range(n):
                      asm = []
                      for j in range(n):
-                            s1 = sp.symbols("a{}{}".format(i,j))
+                            s1 = sp.symbols("a_{}_{}".format(i,j))
                             asm.append(s1)
                             Asymsl.append(s1)
                      Asyms.append(asm[:])
                      asm.clear()
               rterms = []
+              lterms = []
               for l in range(0,n-1,1):
                      iv = 0
                      for i in range(1,n+1,1):
@@ -145,16 +147,18 @@ class butcher:
                                    term3 = sp.Mul(term1,term2)
                                    termeq.append(term3)
                             term4 = sp.sympify(sum(termeq))
+                            lterms.append(term4)
                             term5 = sp.Add(term4,sp.Mul(sp.Integer(-1),rv))
                             eqsa.append(term5)
                             termeq.clear()
                      iv += 3
-              As = sp.solve(eqsa, symsd)
-              ff = list(As.values())
-              assn = np.array(ff, dtype=float).reshape((n-1,n))
-              assnb = assn.tolist()
-              assnb.append(B[:])
-              return assnb
+              vs = flatten(sp.matrix2numpy(Vsyms).tolist())
+              Aslin = sp.linsolve(eqsa, vs)
+              linans = list(Aslin.args[:][0])
+              lin2 = np.array(linans, dtype=float).reshape((n-1,n))
+              lin3 = lin2.tolist()
+              lin3.append(B[:])
+              return lin3
        
        def Bfunc(self, s, Bi,Ci, k):
               sk = int(2*k + 1)
@@ -251,21 +255,22 @@ class butcher:
               return A.tolist()
        
        def evects(self, Am):
+              A = sp.simplify(sp.Matrix(Am))
+              Eigs = A.eigenvects()
+              return Eigs
+       
+       def diag(self, Am):
               A = sp.Matrix(Am)
               (P, D) = A.diagonalize()
               return P, D
        
        
-X = butcher(11)
+X = butcher(17)
 C = X.CiLPS()
 B = X.Bi(C)
 A = X.Ai(B, C)
-Ainv = X.inv(A)
-# print(A)
-# Eigvals = X.evals(Ainv)
-# Evects, D = X.evects(Ainv)
-# pprint(Eigvals)
-# pprint(Evects)
+pprint(A)
+
 
 
 
