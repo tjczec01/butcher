@@ -14,6 +14,8 @@ pprint = pp.pprint
 
 flatten = lambda l: [item for sublist in l for item in sublist] 
 
+# s = Stage Order
+          
 def factorial(n):
      if n == 0:
             return 1
@@ -30,11 +32,40 @@ def Gamma(n):
               return None
        else:
               return factorial(n-1)
+       
+def isodd(num):
+       if num % 2 == 0:
+           return False # Even 
+       else:
+           return True # Odd       
+
+def stage(p):
+        s = sp.symbols("s")
+        odd = isodd(p)
+        if odd is True:
+              Eq = 2*s - 1 - int(p)
+        elif odd is False:
+              Eq = 2*s - int(p)
+        S = int(sp.solve(Eq,s)[0])
+        return S
+
+
 class butcher:
        
-       def __init__(self, order):
-              self.s = int(order)
+       def stage(self, p):
+              ss = sp.symbols("s")
+              odd = isodd(p)
+              if odd is True:
+                     Eq = 2*ss - 1 - int(p)
+              elif odd is False:
+                     Eq = 2*ss - int(p)
+              S = int(sp.solve(Eq,ss)[0])
+              return S
        
+       def __init__(self, order):
+              self.order = int(order)
+              self.s = self.stage(order)
+              
        def Px(self, s, evalf=True):
                      xp = sp.symbols("x")
                      if s == 0:
@@ -86,23 +117,31 @@ class butcher:
                      return terms[-1]    
        
        # Shifed legendre 
-       def CiLPS(self):
+       def CiLPS(self, s):
               x = sp.symbols('x')
               eq1 = self.legendrePS(self.s,False,True)
               eq2 = self.legendrePS(self.s - 1,False,True)
-              eq3 = sp.Add(eq1,sp.Mul(sp.Integer(-1),eq2))
-              listeq = sp.nroots(sp.Poly(eq3,x),15)
-              return listeq[:]
+              eq3 = sp.Mul(sp.Integer(-1),eq2)
+              eq4 = sp.Add(eq1,eq3)
+              P = sp.Poly(eq4,x)
+              Pc = P.all_coeffs()
+              roots = list(np.roots(Pc))[::-1]
+              listeq = sp.nroots(sp.Poly(eq4,x),15)
+              return roots, listeq
               
-       def CiLP(self):
+       def CiLP(self, s):
               x = sp.symbols('x')
-              eq1 = self.legendrePS(self.s,False,True)
-              eq2 = self.legendrePS(self.s-1,False,True)
-              eq3 = sp.Add(eq1,sp.Mul(sp.Integer(-1),eq2))
-              listeq = sp.nroots(sp.Poly(eq3,x),15)
-              return listeq
+              eq1 = self.legendreP(self.s,False,True)
+              eq2 = self.legendreP(self.s-1,False,True)
+              eq3 = sp.Mul(sp.Integer(-1),eq2)
+              eq4 = sp.Add(eq1,eq3)
+              P = sp.Poly(eq4,x)
+              Pc = P.all_coeffs()
+              roots = list(np.roots(Pc))[::-1]
+              listeq = sp.nroots(sp.Poly(eq4,x),15)
+              return roots, listeq
        
-       def Bi(self, C):
+       def Bi(self, s, C):
               bsyms = [sp.symbols("b{}".format(i+1)) for i in range(len(C))]
               eqs = []
               for i in range(len(C)):
@@ -112,7 +151,7 @@ class butcher:
               bs = sp.solve(eqs,bsyms)
               return list(bs.values())
        
-       def Ai(self, B, C):
+       def Ai(self, s, B, C):
               n = self.s
               Vsyms = sp.Matrix(sp.symarray('a',(n-1,n)))
               Asyms = []
@@ -160,81 +199,115 @@ class butcher:
               lin3.append(B[:])
               return lin3
        
-       def Bfunc(self, s, Bi,Ci, k):
-              sk = int(2*k + 1)
+       def tableR(self):
+              Cs = self.CiLPS(self.s)[0]
+              Cs[-1] = 1.0
+              Bs = self.Bi(self.s, Cs)
+              As = self.Ai(self.s, Bs, Cs)
+              return [As, Bs, Cs]
+       
+       def tableG(self):
+              Cs = self.CiLP(self.s)[0]
+              Bs = self.Bi(self.s, Cs)
+              As = self.Ai(self.s, Bs, Cs)
+              return [As, Bs, Cs]
+       
+       def Bfunc(self, s, k, Bi,Ci):
               leftlb = []
               rightlb = []
-              for j in range(1,sk+1,1):
+              for j in range(k):
+                     jj = int(j + 1)
                      leftllb = []
-                     rightb = j**-1
+                     rightb = round(float(1.0/jj),15)
                      rightlb.append(rightb)
-                     for i in range(0,s+1,1):
+                     for i in range(s):
                             Bval = Bi[i]
-                            Cval = Ci[i]**(j-1)
-                            Fvalb = Bval*Cval
+                            Cval = Ci[i]**j
+                            Fvalb = float(Bval*Cval)
                             leftllb.append(Fvalb)
-                     finallb = sum(leftllb)
+                     finallb = round(sum(leftllb),15)
                      leftlb.append(finallb)
                      leftllb.clear()
               return [leftlb, rightlb]
               
-       def Cfunc(self, s, Aij,Ci, k):
-              leftlc = []
-              rightlc = []
+       def Cfunc(self, s, k, Aij,Ci):
+              leftlcf = []
+              rightlcf = []
               for l in range(k):
+                     leftlc = []
+                     rightlc = []
+                     ll = l + 1
                      for i in range(s):
                             leftllc = []
-                            rightc = (Ci[i]**(l+1))/(l+1)
+                            Cvalct = Ci[i]**ll
+                            Cvali = Cvalct/ll
+                            rightc = Cvali
                             rightlc.append(rightc)
-                            for j in range(0,s,1):
-                                   Avals = Aij[i][j]
-                                   Cval = Ci[j]**l
-                                   Fvalc = Avals*Cval
+                            for j in range(s):
+                                   Avalsf = Aij[i][j]
+                                   Cvalj = Ci[j]**l
+                                   Fvalc = Avalsf*Cvalj
                                    leftllc.append(Fvalc)
                             finallc = sum(leftllc)
                             leftlc.append(finallc)
                             leftllc.clear()
-              return [leftlc, rightlc]
+                     leftlcf.append(leftlc[:])
+                     leftlc.clear()
+                     rightlcf.append(rightlc[:])
+                     rightlc.clear()
+              return [leftlcf, rightlcf]
                             
-       def Dfunc(self, s, Aij,Bi,Ci,k):
-              leftld = []
-              rightld = []
+       def Dfunc(self, s, k, A,Bi,Ci):
+              leftlf = []
+              rightlf = []
               for l in range(k):
+                     ll = l + 1
+                     leftld = []
+                     rightld = []
                      for j in range(s):
-                            rightd = (Bi[j]*(1.0 - (Ci[j]**(l+1))))/(l+1)
+                            Bvald = Bi[j]
+                            Cvald = Ci[j]
+                            top = Bvald*(1.0 - Cvald**ll)
+                            rightd = top/ll
                             rightld.append(rightd)
                             leftlld = []
                             for i in range(s):
-                                   Aval = Aij[i][j]
-                                   Cs = Ci[i]**(l) 
+                                   Aij = A[i][j]
+                                   Cs = Ci[i]**(ll-1) 
                                    Bv = Bi[i]
-                                   Vall = Aval*Cs*Bv
+                                   Vall = Aij*Cs*Bv
                                    leftlld.append(Vall)
-                            finalld = sum(leftlld)
+                            finalld = round(sum(leftlld), 15)
                             leftld.append(finalld)
                             leftlld.clear()
-              return [leftld, rightld]
+                     leftlf.append(leftld[:])
+                     leftld.clear()
+                     rightlf.append(rightld[:])
+                     rightld.clear()
+              return [leftlf, rightlf]
        
-       def Efunc(self, s, Aij,Bi,Ci):
+       def Efunc(self, s, k, l, A,Bi,Ci):
               leftf = []
               rightf = []
-              for m in range(s):
+              for m in range(k):
                      rightee = []
                      lefte = []
-                     for n in range(s):
+                     for n in range(l):
                             leftle = []
                             rightle = []
                             mm = m + 1
                             nn = n + 1
-                            righte = 1.0/((mm+nn)*nn)
+                            bottom = (mm + nn) * nn
+                            righte = round(1.0/bottom, 15)
                             rightle.append(righte)
                             for i in range(s):
+                                   Cival = Ci[i]**m
                                    for j in range(s):
                                           Bval = Bi[i]
-                                          Cval = Ci[i]**m
-                                          Aval = Aij[i][j]
-                                          C2val = Ci[j]**n
-                                          leftv = Bval*Aval*Cval*C2val
+                                          
+                                          Aij = A[i][j]
+                                          Cjval = Ci[j]**n
+                                          leftv = round(Bval*Cival*Aij*Cjval, 15)
                                           leftle.append(leftv)
                             finalle = sum(leftle)
                             lefte.append(finalle)
@@ -255,7 +328,7 @@ class butcher:
               return A.tolist()
        
        def evects(self, Am):
-              A = sp.simplify(sp.Matrix(Am))
+              A = sp.Matrix(Am)
               Eigs = A.eigenvects()
               return Eigs
        
@@ -264,14 +337,60 @@ class butcher:
               (P, D) = A.diagonalize()
               return P, D
        
+       def jordan(self, Am, calc=True):
+              A = sp.Matrix(Am)
+              if calc is True:
+                     Pa, Ja = A.jordan_form(calc_transform=calc)
+                     return Pa, Ja
+              if calc is False:
+                     Jb = A.jordan_form(calc_transform=calc)
+                     return Jb
+          
+       def char(self, Am):
+              A = sp.Matrix(Am)
+              M, N = np.array(Am).shape
+              λ = sp.Symbol('λ')
+              I = sp.eye(M)
+              Ad = A - I*λ
+              Deta = Ad.det()
+              return Deta 
        
-X = butcher(17)
-C = X.CiLPS()
-B = X.Bi(C)
-A = X.Ai(B, C)
-pprint(A)
-
-
-
-
-
+       def sroots(self, Am):
+              A = sp.Matrix(Am)
+              M, N = np.array(Am).shape
+              λ = sp.Symbol('λ')
+              I = sp.eye(M)
+              Ad = A - I*λ
+              Deta = Ad.det()
+              # evalss = A.eigenvals(simplify=True)
+              roots = sp.roots(Deta, λ, multiple=True)
+              return roots
+       
+       def jsolve(self, Am, roots):
+              A = sp.Matrix(Am)
+              M, N = np.array(Am).shape
+              λ = sp.Symbol('λ')
+              Vsyms = sp.Matrix(sp.symarray('v',M))
+              I = sp.eye(M)
+              Ad = I*λ - A
+              B = sp.Matrix([0.0 for i in range(M)])
+              ansl = []
+              for i in range(len(B)):
+                     Eq1 = Ad.subs(λ,roots[i])
+                     # eq1 = flatten(sp.matrix2numpy(Eq1).tolist())
+                     vs = flatten(sp.matrix2numpy(Vsyms).tolist())
+                     ans1 = sp.linsolve((Eq1,B), vs)
+                     # ans2 = ans1.subs({'v_1': 1, 'v_3': 1})
+                     # pprint(ans1)
+                     ansl.append(ans1.args[:][0])
+              return ansl
+       
+order = int(input("Enter order of desired butcher tableau --> "))
+X = butcher(order)
+A, B, C = X.tableR()
+An = np.array(A, dtype=float)
+Ainv = X.inv(A)
+Aninv = np.array(Ainv)
+Ans = sp.Matrix(Ainv)
+chareq = sp.nsimplify(X.char(Ainv), 15)
+mus = X.sroots(Ainv)
