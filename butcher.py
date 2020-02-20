@@ -5,17 +5,37 @@ Created on Mon Feb  3 23:21:54 2020
 @author: tjcze
 """
 
+import time
 import numpy as np
 import scipy as sc
 import sympy as sp
 import pprint as pp
+from sympy import I
 from scipy import linalg
+from scipy import optimize
+from scipy.optimize import fsolve
+from sympy.matrices import *
+from numpy.linalg import *
 pprint = pp.pprint
 
+start = time.time() #Real time when the program starts to run
+
 flatten = lambda l: [item for sublist in l for item in sublist] 
+λ = sp.Symbol('λ')
 
 # s = Stage Order
-          
+def sym2num(x):
+              try:
+                     v = float(sp.re(x))*1.0 + float(sp.im(x))*1j
+                     if v.imag ==0:
+                            return v.real
+                     else:
+                            return complex(v.real, v.imag)
+              except:
+                     return float(x)
+              
+       
+
 def factorial(n):
      if n == 0:
             return 1
@@ -199,14 +219,14 @@ class butcher:
               lin3.append(B[:])
               return lin3
        
-       def tableR(self):
+       def radau(self):
               Cs = self.CiLPS(self.s)[0]
               Cs[-1] = 1.0
               Bs = self.Bi(self.s, Cs)
               As = self.Ai(self.s, Bs, Cs)
               return [As, Bs, Cs]
        
-       def tableG(self):
+       def gauss(self):
               Cs = self.CiLP(self.s)[0]
               Bs = self.Bi(self.s, Cs)
               As = self.Ai(self.s, Bs, Cs)
@@ -350,47 +370,156 @@ class butcher:
               A = sp.Matrix(Am)
               M, N = np.array(Am).shape
               λ = sp.Symbol('λ')
-              I = sp.eye(M)
-              Ad = A - I*λ
+              II = sp.eye(M)
+              Ad = A - II*λ
               Deta = Ad.det()
               return Deta 
        
-       def sroots(self, Am):
+       def sroots(self, Am, tol=None, nn=None, char=None):
+              #returns sympy format, python format
+              λ = sp.Symbol('λ')
+              if tol == None:
+                     tol = 10**-15
+              if nn == None:
+                     nv = 15
+              elif nn != None:
+                     nv = int(nn)
+              if char == None:
+                     A = sp.Matrix(Am)
+                     M, N = np.array(Am).shape
+                     II = sp.eye(M)
+                     Ad = A - II*λ
+                     Deta = Ad.det()
+              elif char != None:
+                     Deta = char
+              Detsimp = sp.nfloat(sp.nsimplify(Deta, tolerance=tol, full=True), n=nv)
+              # rlist = list(sp.solve(Detsimp, λ))
+              rlist = list(sp.solve(Detsimp, λ,  **{'set': True ,'particular': True}))
+              rootsd = [sp.nsimplify(i, tolerance=tol, full=True) for i in rlist]
+              sympl = []
+              numpr = []
+              numpi = []
+              for i, j in enumerate(rootsd):
+                     sympl.append(sp.simplify(sp.nfloat(rootsd[i], n=nv), rational=False))
+                     vals = j.as_real_imag()
+                     vali = sp.nfloat(vals[0], n=nv)
+                     valj = sp.nfloat(vals[1], n=nv)
+                     numpr.append(vali)
+                     numpi.append(valj)
+              reals = []
+              iss = []
+              simps = []
+              for i, j in zip(numpr, numpi):
+                    reale = i
+                    compe = j
+                    reals.append(reale)
+                    if compe != 0.0:
+                           iss.append(compe)
+                           simps.append(complex(i,j))
+                    else:
+                           simps.append(reale)  
+                           
+              return rlist, simps 
+       
+       def alpha(self, eigl):
+              eigs = list(eigl)
+              lambds = []
+              alps = []
+              betas = []
+              for i in eigs:
+                     rr = i.real
+                     ii = i.imag
+                     ii2 = -ii
+                     if rr not in alps and ii != 0.0:
+                            alps.append(rr)
+                     if ii not in betas and ii2 not in betas and ii != 0.0:
+                            betas.append(ii)
+                     if ii == 0.0:
+                            lambds.append(rr)
+                     
+              return lambds, alps, betas
+       
+       def block(self, ls, als, bs):
+              matrices = []
+              for i in range(len(als)):
+                     matrixi = sp.Matrix([[als[i], -bs[i]], [bs[i], als[i]]])
+                     
+                     matrices.append(matrixi)
+              B = sp.BlockDiagMatrix(sp.Matrix([ls]),*matrices)
+              return B
+       
+       def Tmat(self, Am, eis):
               A = sp.Matrix(Am)
               M, N = np.array(Am).shape
-              λ = sp.Symbol('λ')
-              I = sp.eye(M)
-              Ad = A - I*λ
-              Deta = Ad.det()
-              # evalss = A.eigenvals(simplify=True)
-              roots = sp.roots(Deta, λ, multiple=True)
-              return roots
+              Xi = sp.symarray('x',M)
+              listd = [sp.symbols('x_{}'.format(i)) for i in range(M)]
+              llist = [sp.symbols('x_{}'.format(i)) for i in range(M-1)]
+              T = []
+              realss = []
+              comps = []
+              imagine = bool(False)
+              count = 0
+              for i in eis:
+                     II = sp.eye(M)
+                     Ad = A - i*II
+                     AA = sp.matrix2numpy(Ad*sp.Matrix(Xi))
+                     AAf = flatten(AA)
+                     ss = sp.nonlinsolve(AAf, *llist)
+                     # print(ss)
+                     Xvec = list(sp.simplify(ss.args[0].subs({listd[-1] : 1.0})))
+                     for iss in Xvec:
+                            indexx = Xvec.index(iss)
+                            Xvec[indexx] = sp.simplify(iss)
+                     XXvec = []
+                     for ii,jb in enumerate(Xvec):
+                            vall = jb*1.0
+                            Xvec[ii] = vall 
+                            vali = sp.re(vall)
+                            valj = sp.im(vall)
+                            realss.append(vali)
+                            comps.append(valj)
+                            if valj != 0.0:
+                                   imagine = bool(True)
+                     if imagine == True:
+                            count += 1
+                     realss.insert(len(realss), 1)  
+                     comps.insert(len(comps), 0)
+                     if count % 2 == 0 and imagine == False:
+                            T.append(realss[:])
+                            realss.clear()
+                            comps.clear()
+                     elif count % 2 != 0 and imagine == True:
+                             T.append(realss[:])
+                             realss.clear()
+                             comps.clear()
+                     elif count % 2 == 0 and imagine == True:
+                            T.append(comps[:])
+                            realss.clear()
+                            comps.clear()
+                     Xvec.clear()
+                     XXvec.clear()
+              Tfixed = np.array(T, dtype=float).T
+              Tinv = sc.linalg.inv(Tfixed)
+              return Tfixed, Tinv
+              
        
-       def jsolve(self, Am, roots):
-              A = sp.Matrix(Am)
-              M, N = np.array(Am).shape
-              λ = sp.Symbol('λ')
-              Vsyms = sp.Matrix(sp.symarray('v',M))
-              I = sp.eye(M)
-              Ad = I*λ - A
-              B = sp.Matrix([0.0 for i in range(M)])
-              ansl = []
-              for i in range(len(B)):
-                     Eq1 = Ad.subs(λ,roots[i])
-                     # eq1 = flatten(sp.matrix2numpy(Eq1).tolist())
-                     vs = flatten(sp.matrix2numpy(Vsyms).tolist())
-                     ans1 = sp.linsolve((Eq1,B), vs)
-                     # ans2 = ans1.subs({'v_1': 1, 'v_3': 1})
-                     # pprint(ans1)
-                     ansl.append(ans1.args[:][0])
-              return ansl
-       
-order = int(input("Enter order of desired butcher tableau --> "))
+E = [-10.0488094 ,   1.38214273,  -0.33333333]       
+# order = int(input("Enter order of desired butcher tableau --> "))
+order = 17
+ni = 15 # Decimal places for nfloat
+toll = 10E-10 # Tolerence for nsimplify
 X = butcher(order)
-A, B, C = X.tableR()
+A, B, C = X.radau()
 An = np.array(A, dtype=float)
 Ainv = X.inv(A)
 Aninv = np.array(Ainv)
 Ans = sp.Matrix(Ainv)
-chareq = sp.nsimplify(X.char(Ainv), 15)
-mus = X.sroots(Ainv)
+Eigs = sc.linalg.eigvals(Aninv)
+ljd = list(Eigs)
+ljd2 = list(np.sort(np.array(Eigs)))
+# ljd2.insert(0, ljd2.pop(-1))
+Tf, TIf = X.Tmat(Ainv, ljd2)
+T = Tf.tolist()
+TI = TIf.tolist()
+print(T)
+print(TI)
