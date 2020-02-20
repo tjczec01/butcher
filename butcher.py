@@ -466,7 +466,7 @@ class butcher:
                      AAf = flatten(AA)
                      ss = sp.nonlinsolve(AAf, *llist)
                      # print(ss)
-                     Xvec = list(sp.simplify(ss.args[0].subs({listd[-1] : 1.0})))
+                     Xvec = list(sp.simplify(ss.args[0].subs({listd[-1] : -1.0})))
                      for iss in Xvec:
                             indexx = Xvec.index(iss)
                             Xvec[indexx] = sp.simplify(iss)
@@ -507,7 +507,7 @@ E = [-10.0488094 ,   1.38214273,  -0.33333333]
 # order = int(input("Enter order of desired butcher tableau --> "))
 order = 17
 ni = 15 # Decimal places for nfloat
-toll = 10E-10 # Tolerence for nsimplify
+toll = 10E-15 # Tolerence for nsimplify
 X = butcher(order)
 A, B, C = X.radau()
 An = np.array(A, dtype=float)
@@ -516,9 +516,10 @@ Aninv = np.array(Ainv)
 Ans = sp.Matrix(Ainv)
 Eigs = sc.linalg.eigvals(Aninv)
 ljd = list(Eigs)
-ljd2 = list(np.sort(np.array(Eigs)))
-# ljd2.insert(0, ljd2.pop(-1))
-Tf, TIf = X.Tmat(Ainv, ljd2)
+eigenvals = list(np.sort(np.array(Eigs)))
+eigenvals.insert(0, eigenvals.pop(-1))
+ljd2 = eigenvals.copy()
+Tf, TIf = X.Tmat(Ainv, eigenvals)
 T = Tf.tolist()
 TI = TIf.tolist()
 print(T)
