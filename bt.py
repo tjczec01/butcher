@@ -4,6 +4,7 @@ Created on Mon Feb  3 23:21:54 2020
 
 @author: tjcze
 """
+
 import numpy as np
 import scipy as sc
 import sympy as sp
