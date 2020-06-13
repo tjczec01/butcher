@@ -4,19 +4,16 @@ Created on Mon Feb  3 23:21:54 2020
 
 @author: tjcze
 """
-
 import numpy as np
 import scipy as sc
 import sympy as sp
-import pprint as pp
 from sympy import I
-from scipy.interpolate import lagrange 
-from numpy.polynomial.polynomial import Polynomial
-from numpy.polynomial.polynomial import polyval, polyint
-import numpy.linalg  as nla
-import scipy.linalg as la
-import decimal
-De = decimal.Decimal
+# from scipy.interpolate import lagrange 
+# from numpy.polynomial.polynomial import Polynomial
+# from numpy.polynomial.polynomial import polyval, polyint
+# import numpy.linalg  as nla
+# import scipy.linalg as la
+from scipy.interpolate import CubicSpline
 
 # def sym2num(x):
 #               try:
@@ -888,6 +885,25 @@ class butcher:
            for row in Mm:
                print([round(x, decimals) + 0 for x in row])
                
+       def P(self, Cm):
+              Ps = []
+              c0 = Cm[0]
+              if c0 == 0.0 or c0 == 0:
+                     pass
+              else:
+                     Cm.insert(0, 0.0)
+              cis = len(Cm)
+              for i in range(len(Cm)-1):
+                     ys = [0.0 for i in range(len(Cm))]
+                     ys[i+1] = 1.0
+                     CC = CubicSpline(Cm, ys)
+                     coeffs = CC.c
+                     coeffs2 = (coeffs.T)[0]
+                     coeffs3 = list(coeffs2[::-1])
+                     del coeffs3[0]
+                     Ps.append(coeffs3)
+              return Ps
+               
        
                             
               
@@ -896,6 +912,8 @@ X = butcher(order, 15)
 A, B, C = X.radau() 
 Ainv = X.inv(A)        
 T, TI = X.Tmat(Ainv)  
+P = X.P(C)
+# print(np.array(P))
 # print(np.array(A))
 # print(np.array(Ainv))
 # print(np.array(T))
@@ -904,6 +922,7 @@ T, TI = X.Tmat(Ainv)
 # X.printm(Ainv)
 # X.printm(T)
 # X.printm(TI)
+# X.printm(P)
 # print(X.detf(A))
 # print(X.detr(A))
 # print(la.det(An))
