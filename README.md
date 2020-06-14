@@ -10,7 +10,7 @@
 
 ###### [butchertableau.py](https://github.com/tjczec01/butcher/blob/master/butchertableau.py)
 
-#### [Example](https://github.com/tjczec01/butcher/blob/master/butchertableauf.ipynb) 
+## [Example](https://github.com/tjczec01/butcher/blob/master/butchertableauf.ipynb) 
 
 ## Code
 
