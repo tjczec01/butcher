@@ -9,7 +9,7 @@
 ##### It can also calculate the interpolator coefficients, P, for a cubic polynomial spline.
 
 # Example 
-#### butchertableau.py
+#### [Class File](https://github.com/tjczec01/butcher/blob/master/butchertableau.py)
 
 
 
