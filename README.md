@@ -1,6 +1,6 @@
 # Butcher Tableau
 
-##### Calculates the Butcher Tableau for a given order.
+##### Calculates the [Butcher Tableau](https://en.wikipedia.org/wiki/List_of_Runge%E2%80%93Kutta_methods#Radau_IIA_methods) for a given order.
 
 ##### Calculates A, B, and C for a given order and method. 
 
