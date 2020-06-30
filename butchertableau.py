@@ -2,13 +2,25 @@
 """
 Created on Mon Feb  3 23:21:54 2020
 
-@author: tjcze
+Github: https://github.com/tjczec01
+
+@author: Travis J Czechorski 
+
+E-mail: tjczec01@gmail.com
 """
+from __future__ import division, print_function, absolute_import
 import numpy as np
 import scipy as sc
 import sympy as sp
 from sympy import I
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, make_interp_spline
+import functools
+from functools import *
+
+__name__ = "butchertableau"   
+
+__all__ = ["butcher"] 
+
 
 class butcher:
        
@@ -24,13 +36,35 @@ class butcher:
                             Eq = 2*ss - int(p)
                      S = int(sp.solve(Eq,ss)[0])
                      return S
+              if order is None:
+                     self.order = 5
+                     self.s = stage(5)
+              elif decs is None:
+                     self.decs = 12
+                     self.nd = int(12)
               
-              self.order = int(order)
-              self.s = stage(order)
-              self.decs = int(decs)
-              self.nd = int(self.decs)
+              if type(order) is int and type(decs) is int:
+                     self.order = int(order)
+                     self.s = stage(order)
+                     self.decs = int(decs)
+                     self.nd = int(self.decs)
+              if type(order) is float and type(decs) is float:
+                     self.order = int(order)
+                     self.s = int(stage(order))
+                     self.decs = int(decs)
+                     self.nd = int(self.decs)
        
        λ = sp.Symbol('λ')
+       
+       def stage(self):
+                     ss = sp.symbols("s")
+                     odd = self.isodd(self.order)
+                     if odd is True:
+                            Eq = 2*ss - 1 - int(self.order)
+                     elif odd is False:
+                            Eq = 2*ss - int(self.order)
+                     S = int(sp.solve(Eq,ss)[0])
+                     return S
        
        def flatten(self, lm):
               flatten = lambda l: [item for sublist in l for item in sublist] 
@@ -97,29 +131,29 @@ class butcher:
        
            return MT
               
-       def Px(self, s, evalf=True):
+       def Px(self, sp, evalf=True):
                      xp = sp.symbols("x")
-                     if s == 0:
+                     if self.s == 0:
                             return 1.0
                      else:
-                            term1 = 1.0/((2.0**s)*self.factorial(s))
-                            term2 = sp.expand((xp**2 - 1)**s)
-                            term3 = sp.expand(sp.diff(term2,xp,s))
+                            term1 = 1.0/((2.0**sp)*self.factorial(sp))
+                            term2 = sp.expand((xp**2 - 1)**sp)
+                            term3 = sp.expand(sp.diff(term2, xp, sp))
                             term4 = sp.Mul(term1,term3)
                             return term4
        # Shifed legendre
-       def PxS(self, s, evalf=True):
+       def PxS(self, sd, evalf=True):
                      xps = sp.symbols("x")
-                     if s == 0:
+                     if self.s == 0:
                             return 1.0
                      else:
-                            term1 = 1.0/self.factorial(s)
-                            term2 = sp.expand((xps**2 - xps)**s)
-                            term3 = sp.expand(sp.diff(term2,xps,s))
+                            term1 = 1.0/self.factorial(sd)
+                            term2 = sp.expand((xps**2 - xps)**sd)
+                            term3 = sp.expand(sp.diff(term2, xps, sd))
                             term4 = sp.Mul(term1,term3)
                             return term4
                      
-       def legendreP(self, s, listall=False, expand=True):
+       def legendreP(self, listall=False, expand=True):
               listc = [i for i in range(s+1)]
               terms = []
               for i in listc:
@@ -134,8 +168,8 @@ class butcher:
                      return terms[-1]
               
        # Shifed legendre      
-       def legendrePS(self, s, listall=False, expand=True):
-              listc = [i for i in range(s+1)]
+       def legendrePS(self, si, listall=False, expand=True):
+              listc = [i for i in range(si+1)]
               terms = []
               for i in listc:
                      if expand is True:
@@ -149,9 +183,9 @@ class butcher:
                      return terms[-1]    
        
        # Shifed legendre 
-       def CiLPS(self, s):
+       def CiLPS(self):
               x = sp.symbols('x')
-              eq1 = self.legendrePS(self.s,False,True)
+              eq1 = self.legendrePS(self.s, False,True)
               eq2 = self.legendrePS(self.s - 1,False,True)
               eq3 = sp.Mul(sp.Integer(-1),eq2)
               eq4 = sp.Add(eq1,eq3)
@@ -161,7 +195,7 @@ class butcher:
               listeq = sp.nroots(sp.Poly(eq4,x), self.nd)
               return roots, listeq
               
-       def CiLP(self, s):
+       def CiLP(self):
               x = sp.symbols('x')
               eq1 = self.legendreP(self.s,False,True)
               eq2 = self.legendreP(self.s-1,False,True)
@@ -173,17 +207,17 @@ class butcher:
               listeq = sp.nroots(sp.Poly(eq4,x), self.nd)
               return roots, listeq
        
-       def Bi(self, s, C):
+       def Bi(self, C):
               bsyms = [sp.symbols("b{}".format(i+1)) for i in range(len(C))]
               eqs = []
               for i in range(len(C)):
-                     eqi = [sp.Mul(ij**(i),j) for ij,j in zip(C,bsyms)]
-                     eqif = sp.Add(sum(eqi),sp.Mul(sp.Integer(-1),1.0/(i+1)))
+                     eqi = [sp.Mul(ij**(i), j) for ij, j in zip(C, bsyms)]
+                     eqif = sp.Add(sum(eqi), sp.Mul(sp.Integer(-1), 1.0/(i+1)))
                      eqs.append(eqif)
-              bs = sp.solve(eqs,bsyms)
+              bs = sp.solve(eqs, bsyms)
               return list(bs.values())
        
-       def Ai(self, s, B, C):
+       def Ai(self, B, C):
               n = self.s
               Vsyms = sp.Matrix(sp.symarray('a',(n-1,n)))
               Asyms = []
@@ -232,10 +266,10 @@ class butcher:
               return lin3
        
        def radau(self):
-              Cs = self.CiLPS(self.s)[0]
+              Cs = self.CiLPS()[0]
               Cs[-1] = 1.0
-              Bs = self.Bi(self.s, Cs)
-              As = self.Ai(self.s, Bs, Cs)
+              Bs = self.Bi(Cs)
+              As = self.Ai(Bs, Cs)
               return [As, Bs, Cs]
        
        def radauref(self, A, B, C):
@@ -253,7 +287,7 @@ class butcher:
               As = self.Ai(self.s, Bs, Cs)
               return [As, Bs, Cs]
        
-       def Bfunc(self, s, k, Bi, Ci):
+       def Bfunc(self, k, Bi, Ci):
               leftlb = []
               rightlb = []
               for j in range(k):
@@ -271,7 +305,7 @@ class butcher:
                      leftllb.clear()
               return [leftlb, rightlb]
               
-       def Cfunc(self, s, k, Aij, Ci):
+       def Cfunc(self, k, Aij, Ci):
               leftlcf = []
               rightlcf = []
               for l in range(k):
@@ -298,7 +332,7 @@ class butcher:
                      rightlc.clear()
               return [leftlcf, rightlcf]
                             
-       def Dfunc(self, s, k, A, Bi, Ci):
+       def Dfunc(self, k, A, Bi, Ci):
               leftlf = []
               rightlf = []
               for l in range(k):
@@ -333,7 +367,7 @@ class butcher:
               
               return leftlf, rightlf
        
-       def Dfuncb(self, s, A, B, C):
+       def Dfuncb(self, A, B, C):
               leftl = []
               rightl = []
               for j in range(s):
@@ -380,7 +414,7 @@ class butcher:
                      llist.clear()
               return leftl, rightl
        
-       def Efunc(self, s, k, l, A, Bi, Ci):
+       def Efunc(self, k, l, A, Bi, Ci):
               leftf = []
               rightf = []
               for m in range(k):
@@ -490,7 +524,7 @@ class butcher:
                            simps.append(complex(i,j))
                     else:
                            simps.append(reale)  
-              return rlist, simps 
+              return rlistimps 
        
        def alpha(self, eigl):
               eigs = list(eigl)
@@ -537,7 +571,7 @@ class butcher:
                                    cs.append(ci)
                             else:
                                    rs.append(ri)
-                                   cs.append(-1.0*ci)
+                                   cs.append(1.0*ci)
                      else:
                             rs.append(ri)
                             cs.append(ci)
@@ -820,7 +854,7 @@ class butcher:
                        IM[i][j] = IM[i][j] - crScAmler * IM[fd][j]
         
            # Section 4: MAmke sure IM is Amn inverse of Am with specified tolerAmnce
-           if self.check_matrix_equality(Id, self.matrix_multiply(Am,IM), tol):
+           if self.check_matrix_equality(Idelf.matrix_multiply(Am,IM), tol):
                return IM
            else:
                   # return IM
@@ -874,16 +908,17 @@ class butcher:
               Ps = []
               Cmb = [i for i in Cm]
               c0 = Cmb[0]
+              kv = len(Cmb)-1
               if c0 == 0.0 or c0 == 0:
                      pass
               else:
                      Cmb.insert(0, 0.0)
-              cis = len(Cmb)
               for i in range(len(Cmb)-1):
                      ys = [0.0 for i in range(len(Cmb))]
                      ys[i+1] = 1.0
-                     CC = CubicSpline(Cmb, ys)
-                     coeffs = CC.c
+                     CC = make_interp_spline(Cmb, ys, self.s)
+                     CC2 = sc.interpolate.PPoly.from_spline(CC)
+                     coeffs = CC2.c
                      coeffs2 = (coeffs.T)[0]
                      coeffs3 = list(coeffs2[::-1])
                      del coeffs3[0]
@@ -892,24 +927,39 @@ class butcher:
        
        def dot(self, v1, v2):
             return sum([x*y for x,y in zip(v1,v2)])
-       
-       # def dotd(self, v1, v2, pr):
-       #        vv = sum([x*y for x, y in zip(v1, v2)])
-       #        aa = '{}:.{}f{}'.format('{', pr,'}')
-       #        aa1 = '{}'.format(aa)
-       #        aa2 = str(aa1)
-       #        aa3 = str(aa2.format(vv))
-       #        aa4 = De(aa3)
-       #        return aa4
-               
-       
-                            
-              
-order = 5
-X = butcher(order, 15)
-A, B, C = X.radau() 
-Ainv = X.inv(A)        
-T, TI = X.Tmat(Ainv)  
-P = X.P(C)
 
- 
+class mat:
+    def __init__(self, M):
+        self.M = M
+
+    @property
+    def T(self):
+        try:
+            return self._cached_T  # attempt to read cached attribute
+        except AttributeError:
+            self._cached_T = self._transpose()  # compute and cache
+            return self._cached_T
+
+    def _transpose(self):
+        M = self.M
+        rows = len(M)
+        cols = len(M[0])
+        if not isinstance(M[0], list):
+            M = [M]
+        rows = len(M)
+        cols = len(M[0])
+        def zeros_matrix(rows, cols):
+                  M = []
+                  while len(M) < rows:
+                      M.append([])
+                      while len(M[-1]) < cols:
+                          M[-1].append(0.0)
+                  return M
+        MT = zeros_matrix(cols, rows)
+        for i in range(rows):
+            for j in range(cols):
+                MT[j][i] = M[i][j]
+        return MT   
+
+                        
+butcher.__name__ = "butcher"              
