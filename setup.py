@@ -28,7 +28,7 @@ with open(r"{}\README.md".format(cwd), "r") as fh:
 
 setup(
     name="butchertableau", 
-    version="1.0.4",
+    version="1.0.6",
     author="Travis Czechorski",
     author_email="tjczec01@gmail.com",
     description="{}".format(description_chemsys),
