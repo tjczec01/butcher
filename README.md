@@ -29,8 +29,10 @@ print(P)
 ```
 
 #### Install
-## pip install butchertableau
-#### [PYPI](https://pypi.org/project/butchertableau/)
+```python
+pip install butchertableau
+```
+###### [PYPI](https://pypi.org/project/butchertableau/)
 
 
 
