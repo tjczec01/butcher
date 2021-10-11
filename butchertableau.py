@@ -206,11 +206,11 @@ class butcher:
                             term4 = sp.sympify(sum(termeq))
                             lterms.append(term4)
                             term5 = sp.Add(term4,sp.Mul(sp.Integer(-1),rv))
-                            eqsa.append(term5)
+                            eqsa.append([term5])
                             termeq.clear()
                      iv += 3
               vs = self.flatten(sp.matrix2numpy(Vsyms).tolist())
-              Aslin = sp.linsolve(eqsa, vs)
+              Aslin = sp.linsolve(sp.Matrix(eqsa), vs)
               linans = list(Aslin.args[:][0])
               lin2 = np.array(linans, dtype=float).reshape((n-1,n))
               lin3 = lin2.tolist()
